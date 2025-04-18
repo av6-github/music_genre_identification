@@ -6,11 +6,11 @@ import json
 DATASET_PATH = "dataset_compr/genres"
 JSON_PATH = "data.json"
 
-SAMPLE_RATE = 22050
+SAMPLE_RATE = 22050 # loads audio at 22050 samples per second
 DURATION = 30 # in seconds
 SAMPLES_PER_TRACK = SAMPLE_RATE * DURATION
 
-def save_mfcc(dataset_path, json_path, n_mfcc=13, n_fft=2048, hop_length=512, num_segments=5):
+def save_mfcc(dataset_path, json_path, n_mfcc=13, n_fft=2048, hop_length=512, num_segments=5): # loops through each genre folder, splits each audio file into smaller segments, extracts the mfcc features and stores into json file
     
     # dictionary to store data
     data = {
@@ -38,7 +38,7 @@ def save_mfcc(dataset_path, json_path, n_mfcc=13, n_fft=2048, hop_length=512, nu
 
                 # load audio file
                 file_path = os.path.join(dirpath, f)
-                signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
+                signal, sr = librosa.load(file_path, sr=SAMPLE_RATE) # loads audio waverform
 
                 # process segments extracting mfcc and storing data
                 for s in range(num_segments):
@@ -49,13 +49,13 @@ def save_mfcc(dataset_path, json_path, n_mfcc=13, n_fft=2048, hop_length=512, nu
                                                 sr=sr,
                                                 n_fft=n_fft,
                                                 n_mfcc=n_mfcc,
-                                                hop_length=hop_length)
+                                                hop_length=hop_length) # extracts mfccs from each segment
                     mfcc = mfcc.T
 
 
                     # store mfcc for segment if it has expected legth
                     if len(mfcc) == expected_num_mfcc_per_segment:
-                        data["mfcc"].append(mfcc.tolist())
+                        data["mfcc"].append(mfcc.tolist()) # converts matrix to json storable list
                         data["labels"].append(i-1)
                         print(f"{file_path}, segment: {s+1}")
     with open(json_path, "w") as fp:

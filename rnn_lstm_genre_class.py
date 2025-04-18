@@ -1,12 +1,17 @@
 import json
 import numpy as np
 from sklearn.model_selection import train_test_split
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import tensorflow as tf
+import librosa
 keras = tf.keras
+import math
+
 
 DATASET_PATH = "data.json"
 
-def load_data(dataset_path):
+def load_data(dataset_path): # loads data.json, converts mfcc and labels to numpy arrays
 
     with open(dataset_path, "r") as fp:
         data = json.load(fp)
@@ -17,7 +22,7 @@ def load_data(dataset_path):
     
     return X, y
 
-def prepare_datasets(test_size, validation_size):
+def prepare_datasets(test_size, validation_size): # splits data into training validation and testing
 
     # load data
     X, y = load_data(DATASET_PATH)
@@ -63,6 +68,47 @@ def predict(model, X, y):
     predicted_index = np.argmax(prediction, axis=1) # [ind]
     print(f"Expected genre: {genres[y]}, Predicted genre: {genres[predicted_index]}")
 
+def predict_from_file(model, file_path, data_path="data.json", n_mfcc=13, n_fft=2048, hop_length=512):
+    with open(data_path, "r") as fp:
+        data = json.load(fp)
+    genres = np.array(data["mapping"])
+
+    SAMPLE_RATE = 22050
+    DURATION = 30
+    num_segments = 10
+    SAMPLES_PER_TRACK = SAMPLE_RATE * DURATION
+    num_samples_per_segment = int(SAMPLES_PER_TRACK / num_segments)
+    expected_num_mfcc_per_segment = math.ceil(num_samples_per_segment / hop_length)
+
+    signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
+
+    predictions = []
+
+    for s in range(num_segments):
+        start_sample = s * num_samples_per_segment
+        finish_sample = start_sample + num_samples_per_segment
+
+        mfcc = librosa.feature.mfcc(y=signal[start_sample:finish_sample],
+                                    sr=sr,
+                                    n_fft=n_fft,
+                                    n_mfcc=n_mfcc,
+                                    hop_length=hop_length)
+        mfcc = mfcc.T
+
+        if len(mfcc) == expected_num_mfcc_per_segment:
+            mfcc = mfcc[np.newaxis, ...]
+            prediction = model.predict(mfcc, verbose=0)
+            predicted_index = np.argmax(prediction, axis=1)[0]
+            predictions.append(predicted_index)
+
+    if predictions:
+        # Majority vote
+        final_prediction = max(set(predictions), key=predictions.count)
+        print(f"Predicted genre: {genres[final_prediction]}")
+    else:
+        print("Could not make a prediction (audio too short or invalid format).")
+
+
 if __name__ == "__main__":
 
     # create train, validation and test sets
@@ -87,7 +133,7 @@ if __name__ == "__main__":
     test_error, test_accuracy = model.evaluate(X_test, y_test, verbose=1)
     print(f"accuracy on test set is: {test_accuracy}")
 
-    # make prediction on a sample
-    X = X_test[100] # 100 -> randomly selected sample
-    y = y_test[100]
-    predict(model, X, y)
+
+    user_file = input("Enter the path to the audio file: ")
+    predict_from_file(model, user_file)
+
